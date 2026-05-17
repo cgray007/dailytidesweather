@@ -1,0 +1,27 @@
+name: Daily Tide Email
+
+on:
+  schedule:
+    # 7:00 AM Eastern Daylight Time = 11:00 UTC (May–Oct is EDT/UTC-4)
+    - cron: "0 11 * * *"
+  workflow_dispatch:  # allow manual test runs from the GitHub Actions UI
+
+jobs:
+  send-tide-email:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Fetch tides and send email
+        env:
+          GMAIL_ADDRESS:     ${{ secrets.GMAIL_ADDRESS }}
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+          RECIPIENT_EMAIL:   ${{ secrets.RECIPIENT_EMAIL }}
+        run: python tide_email.py
