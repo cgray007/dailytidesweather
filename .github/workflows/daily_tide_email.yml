@@ -25,6 +25,8 @@ jobs:
       - name: Fetch tides, generate narrative, and send email
         env:
           ANTHROPIC_API_KEY:  ${{ secrets.ANTHROPIC_API_KEY }}
+          TIDE_AGENT_ID:      ${{ secrets.TIDE_AGENT_ID }}
+          TIDE_ENV_ID:        ${{ secrets.TIDE_ENV_ID }}
           GMAIL_ADDRESS:      ${{ secrets.GMAIL_ADDRESS }}
           GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
           RECIPIENT_EMAIL:    ${{ secrets.RECIPIENT_EMAIL }}
