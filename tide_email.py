@@ -57,27 +57,35 @@ def generate_narrative(today: date, tides: list[dict]) -> str:
         height = float(entry["v"])
         tide_lines.append(f"  {label} tide at {t.strftime('%-I:%M %p')}: {height:+.2f} ft")
 
-    client = anthropic.Anthropic()
-    response = client.messages.create(
-        model="claude-opus-4-7",
-        max_tokens=300,
-        system=(
-            "You are a friendly local beach guide at 136th Street in Ocean City, MD. "
-            "Given tide predictions for today, write a 2-3 sentence morning briefing "
-            "that helps the reader plan their beach day. Cover the best windows for "
-            "swimming (near high tide), low-tide opportunities for shelling or sandbar "
-            "exploration, and any noteworthy patterns. Be warm, practical, and concise. "
-            "Do not open with a greeting or 'Good morning'."
-        ),
-        messages=[{
-            "role": "user",
-            "content": (
-                f"Today is {today.strftime('%A, %B %-d, %Y')}. "
-                f"Here are today's tide predictions:\n" + "\n".join(tide_lines)
-            ),
-        }],
+    message = (
+        f"Today is {today.strftime('%A, %B %-d, %Y')}. "
+        f"Here are today's tide predictions:\n" + "\n".join(tide_lines)
     )
-    return next(b.text for b in response.content if b.type == "text")
+
+    client = anthropic.Anthropic()
+    session = client.beta.sessions.create(
+        agent=os.environ["TIDE_AGENT_ID"],
+        environment_id=os.environ["TIDE_ENV_ID"],
+    )
+
+    parts: list[str] = []
+    with client.beta.sessions.events.stream(session_id=session.id) as stream:
+        client.beta.sessions.events.send(
+            session_id=session.id,
+            events=[{
+                "type": "user.message",
+                "content": [{"type": "text", "text": message}],
+            }],
+        )
+        for event in stream:
+            if event.type == "agent.message":
+                for block in event.content:
+                    if block.type == "text":
+                        parts.append(block.text)
+            elif event.type in ("session.status_terminated", "session.status_idle"):
+                break
+
+    return "".join(parts).strip()
 
 
 def tide_row(entry: dict) -> str:
