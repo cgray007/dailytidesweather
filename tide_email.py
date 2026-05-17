@@ -14,6 +14,8 @@ from datetime import date, datetime
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
+import anthropic
+
 NOAA_STATION = "8570283"  # Ocean City (Inlet), MD
 SEASON_START = (5, 17)    # May 17
 SEASON_END   = (10, 15)   # October 15
@@ -47,6 +49,37 @@ def fetch_tides(today: date) -> list[dict]:
     return data["predictions"]
 
 
+def generate_narrative(today: date, tides: list[dict]) -> str:
+    tide_lines = []
+    for entry in tides:
+        t = datetime.strptime(entry["t"], "%Y-%m-%d %H:%M")
+        label = "High" if entry["type"] == "H" else "Low"
+        height = float(entry["v"])
+        tide_lines.append(f"  {label} tide at {t.strftime('%-I:%M %p')}: {height:+.2f} ft")
+
+    client = anthropic.Anthropic()
+    response = client.messages.create(
+        model="claude-opus-4-7",
+        max_tokens=300,
+        system=(
+            "You are a friendly local beach guide at 136th Street in Ocean City, MD. "
+            "Given tide predictions for today, write a 2-3 sentence morning briefing "
+            "that helps the reader plan their beach day. Cover the best windows for "
+            "swimming (near high tide), low-tide opportunities for shelling or sandbar "
+            "exploration, and any noteworthy patterns. Be warm, practical, and concise. "
+            "Do not open with a greeting or 'Good morning'."
+        ),
+        messages=[{
+            "role": "user",
+            "content": (
+                f"Today is {today.strftime('%A, %B %-d, %Y')}. "
+                f"Here are today's tide predictions:\n" + "\n".join(tide_lines)
+            ),
+        }],
+    )
+    return next(b.text for b in response.content if b.type == "text")
+
+
 def tide_row(entry: dict) -> str:
     t = datetime.strptime(entry["t"], "%Y-%m-%d %H:%M")
     label = "High Tide" if entry["type"] == "H" else "Low Tide "
@@ -59,7 +92,7 @@ def tide_row(entry: dict) -> str:
     )
 
 
-def build_html(today: date, tides: list[dict]) -> str:
+def build_html(today: date, tides: list[dict], narrative: str) -> str:
     date_label = today.strftime("%A, %B %-d, %Y")
     rows = ""
     for entry in tides:
@@ -90,7 +123,11 @@ def build_html(today: date, tides: list[dict]) -> str:
       <div style="font-size:13px;margin-top:2px;opacity:.70;">{date_label}</div>
     </div>
 
-    <div style="padding:20px 28px;">
+    <div style="padding:20px 28px 8px;font-size:15px;line-height:1.65;color:#333;">
+      {narrative}
+    </div>
+
+    <div style="padding:0 28px 20px;">
       <table style="width:100%;border-collapse:collapse;">
         <thead>
           <tr style="border-bottom:2px solid #d0dde8;">
@@ -113,11 +150,13 @@ def build_html(today: date, tides: list[dict]) -> str:
 </html>"""
 
 
-def build_text(today: date, tides: list[dict]) -> str:
+def build_text(today: date, tides: list[dict], narrative: str) -> str:
     date_label = today.strftime("%A, %B %-d, %Y")
     lines = [
-        f"Daily Tide Report — 136th Street, Ocean City, MD",
-        f"{date_label}",
+        "Daily Tide Report — 136th Street, Ocean City, MD",
+        date_label,
+        "",
+        narrative,
         "",
         f"  {'Tide':<11}  {'Time (ET)':<10}  Height",
         "  " + "-" * 40,
@@ -162,9 +201,12 @@ def main() -> None:
     print(f"Fetching NOAA tides for {today} …")
     tides = fetch_tides(today)
 
+    print("Generating tide narrative via Claude …")
+    narrative = generate_narrative(today, tides)
+
     subject = f"Tide Report — OC 136th St — {today.strftime('%a %b %-d')}"
-    html    = build_html(today, tides)
-    text    = build_text(today, tides)
+    html    = build_html(today, tides, narrative)
+    text    = build_text(today, tides, narrative)
 
     print(f"Sending email to {recipient} …")
     send_email(subject, html, text, gmail_address, gmail_password, recipient)

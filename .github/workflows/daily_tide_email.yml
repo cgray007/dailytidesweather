@@ -19,9 +19,13 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Fetch tides and send email
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Fetch tides, generate narrative, and send email
         env:
-          GMAIL_ADDRESS:     ${{ secrets.GMAIL_ADDRESS }}
+          ANTHROPIC_API_KEY:  ${{ secrets.ANTHROPIC_API_KEY }}
+          GMAIL_ADDRESS:      ${{ secrets.GMAIL_ADDRESS }}
           GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
-          RECIPIENT_EMAIL:   ${{ secrets.RECIPIENT_EMAIL }}
+          RECIPIENT_EMAIL:    ${{ secrets.RECIPIENT_EMAIL }}
         run: python tide_email.py

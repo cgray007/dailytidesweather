@@ -1,2 +1,1 @@
-# No third-party dependencies — only Python stdlib is used.
-# (requests is not needed; urllib is built in)
+anthropic
