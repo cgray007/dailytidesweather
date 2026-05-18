@@ -190,7 +190,7 @@ def send_email(subject: str, html: str, text: str,
     msg = MIMEMultipart("alternative")
     msg["Subject"] = subject
     msg["From"]    = sender
-    msg["To"]      = ", ".join(recipients)
+    msg["To"]      = sender
     msg.attach(MIMEText(text, "plain"))
     msg.attach(MIMEText(html, "html"))
 
