@@ -179,12 +179,18 @@ def build_text(today: date, tides: list[dict], narrative: str) -> str:
     return "\n".join(lines)
 
 
+def parse_recipients(raw: str) -> list[str]:
+    import re
+    return [addr.strip() for addr in re.split(r"[,;]", raw) if addr.strip()]
+
+
 def send_email(subject: str, html: str, text: str,
                sender: str, password: str, recipient: str) -> None:
+    recipients = parse_recipients(recipient)
     msg = MIMEMultipart("alternative")
     msg["Subject"] = subject
     msg["From"]    = sender
-    msg["To"]      = recipient
+    msg["To"]      = ", ".join(recipients)
     msg.attach(MIMEText(text, "plain"))
     msg.attach(MIMEText(html, "html"))
 
@@ -192,7 +198,7 @@ def send_email(subject: str, html: str, text: str,
         server.ehlo()
         server.starttls()
         server.login(sender, password)
-        server.sendmail(sender, recipient, msg.as_string())
+        server.sendmail(sender, recipients, msg.as_string())
 
 
 def main() -> None:
