@@ -3,7 +3,7 @@ name: Daily Tide Email
 on:
   schedule:
     # 3:00 AM Eastern Daylight Time = 7:00 UTC (May–Oct is EDT/UTC-4)
-    - cron: "0 7 * * *"
+    - cron: "0 5 * * *"
   workflow_dispatch:  # allow manual test runs from the GitHub Actions UI
 
 jobs:
