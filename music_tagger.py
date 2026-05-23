@@ -2,13 +2,14 @@
 """
 Music Tagger: Standardize audio file tags and filenames.
 
-Derives artist/track info from folder structure and filenames, updates metadata
-tags, and renames files to: {Artist Name} - {Track Number} - {Track Name}.{ext}
+Derives artist/album/track info from folder structure and filenames, updates
+metadata tags, and renames files to:
+  {Artist Name} - {Album Name} - {Track Number} - {Track Name}.{ext}
 
 Folder structure assumed:
-  /Music/{Artist}/{Album}/{files}   -> artist from grandparent
-  /Music/{Artist}/{files}           -> artist from parent
-  /Music/{files}                    -> artist from tags or filename
+  /Music/{Artist}/{Album}/{files}   -> artist + album from folders
+  /Music/{Artist}/{files}           -> artist from parent, album from tags
+  /Music/{files}                    -> artist + album from tags or filename
 
 Dry-run by default. Pass --apply to write changes.
 """
@@ -49,26 +50,19 @@ def safe_filename(name: str) -> str:
     return re.sub(r'[<>:"/\\|?*]', "_", name).strip()
 
 
-def infer_artist_from_path(file_path: Path, music_root: Path) -> Optional[str]:
-    """
-    Walk up the directory tree relative to music_root to find the artist folder.
-
-    Assumes:
-      depth 1 from root -> /Music/{Artist}/{file}        -> parent is artist
-      depth 2 from root -> /Music/{Artist}/{Album}/{file} -> grandparent is artist
-      depth 0 (file directly in root) -> no folder-based artist
-    """
+def infer_context_from_path(file_path: Path, music_root: Path) -> tuple[Optional[str], Optional[str]]:
+    """Return (artist, album) inferred from the folder structure relative to music_root."""
     try:
         rel = file_path.relative_to(music_root)
     except ValueError:
-        return None
+        return None, None
 
     parts = rel.parts  # e.g. ("Artist", "Album", "track.mp3") or ("Artist", "track.mp3")
     if len(parts) >= 3:
-        return parts[0]  # grandparent of file = Artist
+        return parts[0], parts[1]  # Artist/Album/track
     if len(parts) == 2:
-        return parts[0]  # parent of file = Artist
-    return None  # file is directly in music root
+        return parts[0], None      # Artist/track — no album subfolder
+    return None, None              # file directly in music root
 
 
 def read_tags(file_path: Path) -> dict:
@@ -93,6 +87,7 @@ def read_tags(file_path: Path) -> dict:
             except Exception:
                 return tags
             tags["artist"] = audio.get("artist", [None])[0]
+            tags["album"] = audio.get("album", [None])[0]
             tags["title"] = audio.get("title", [None])[0]
             raw_num = audio.get("tracknumber", [None])[0]
             if raw_num:
@@ -101,6 +96,7 @@ def read_tags(file_path: Path) -> dict:
         elif ext == ".flac":
             audio = FLAC(str(file_path))
             tags["artist"] = (audio.get("artist") or [None])[0]
+            tags["album"] = (audio.get("album") or [None])[0]
             tags["title"] = (audio.get("title") or [None])[0]
             raw_num = (audio.get("tracknumber") or [None])[0]
             if raw_num:
@@ -109,9 +105,11 @@ def read_tags(file_path: Path) -> dict:
         elif ext in (".m4a", ".aac", ".mp4"):
             audio = MP4(str(file_path))
             artist_tag = audio.tags.get("\xa9ART") if audio.tags else None
+            album_tag = audio.tags.get("\xa9alb") if audio.tags else None
             title_tag = audio.tags.get("\xa9nam") if audio.tags else None
             trkn_tag = audio.tags.get("trkn") if audio.tags else None
             tags["artist"] = artist_tag[0] if artist_tag else None
+            tags["album"] = album_tag[0] if album_tag else None
             tags["title"] = title_tag[0] if title_tag else None
             if trkn_tag:
                 tags["tracknumber"] = str(trkn_tag[0][0])
@@ -120,6 +118,7 @@ def read_tags(file_path: Path) -> dict:
             audio = MutagenFile(str(file_path), easy=True)
             if audio and audio.tags:
                 tags["artist"] = audio.tags.get("artist", [None])[0] if hasattr(audio.tags, "get") else None
+                tags["album"] = audio.tags.get("album", [None])[0] if hasattr(audio.tags, "get") else None
                 tags["title"] = audio.tags.get("title", [None])[0] if hasattr(audio.tags, "get") else None
                 raw_num = audio.tags.get("tracknumber", [None])[0] if hasattr(audio.tags, "get") else None
                 if raw_num:
@@ -131,7 +130,7 @@ def read_tags(file_path: Path) -> dict:
     return tags
 
 
-def write_tags(file_path: Path, artist: str, title: str, tracknumber: str) -> bool:
+def write_tags(file_path: Path, artist: str, album: str, title: str, tracknumber: str) -> bool:
     """Write standardized tags to the file. Returns True on success."""
     try:
         from mutagen.easyid3 import EasyID3
@@ -155,6 +154,7 @@ def write_tags(file_path: Path, artist: str, title: str, tracknumber: str) -> bo
                 audio.save(str(file_path))
                 audio = EasyID3(str(file_path))
             audio["artist"] = artist
+            audio["album"] = album
             audio["title"] = title
             audio["tracknumber"] = tracknumber
             audio.save()
@@ -162,6 +162,7 @@ def write_tags(file_path: Path, artist: str, title: str, tracknumber: str) -> bo
         elif ext == ".flac":
             audio = FLAC(str(file_path))
             audio["artist"] = artist
+            audio["album"] = album
             audio["title"] = title
             audio["tracknumber"] = tracknumber
             audio.save()
@@ -171,6 +172,7 @@ def write_tags(file_path: Path, artist: str, title: str, tracknumber: str) -> bo
             if audio.tags is None:
                 audio.add_tags()
             audio.tags["\xa9ART"] = [artist]
+            audio.tags["\xa9alb"] = [album]
             audio.tags["\xa9nam"] = [title]
             track_int = int(tracknumber) if tracknumber.isdigit() else 0
             audio.tags["trkn"] = [(track_int, 0)]
@@ -183,6 +185,7 @@ def write_tags(file_path: Path, artist: str, title: str, tracknumber: str) -> bo
             if audio.tags is None:
                 audio.add_tags()
             audio.tags["artist"] = [artist]
+            audio.tags["album"] = [album]
             audio.tags["title"] = [title]
             audio.tags["tracknumber"] = [tracknumber]
             audio.save()
@@ -194,15 +197,15 @@ def write_tags(file_path: Path, artist: str, title: str, tracknumber: str) -> bo
         return False
 
 
-def build_new_filename(artist: str, tracknumber: str, title: str, ext: str) -> str:
-    """Build the standard filename: {Artist} - {TrackNum:02d} - {Title}.{ext}"""
+def build_new_filename(artist: str, album: str, tracknumber: str, title: str, ext: str) -> str:
+    """Build the standard filename: {Artist} - {Album} - {TrackNum:02d} - {Title}.{ext}"""
     try:
         num = int(tracknumber)
         track_str = f"{num:02d}"
     except (ValueError, TypeError):
         track_str = "00"
 
-    name = f"{safe_filename(artist)} - {track_str} - {safe_filename(title)}{ext}"
+    name = f"{safe_filename(artist)} - {safe_filename(album)} - {track_str} - {safe_filename(title)}{ext}"
     return name
 
 
@@ -225,12 +228,13 @@ def process_file(
     # Read existing tags
     tags = read_tags(file_path)
 
-    # Determine artist
-    folder_artist = infer_artist_from_path(file_path, music_root)
+    # Determine artist and album from folder structure, fall back to tags
+    folder_artist, folder_album = infer_context_from_path(file_path, music_root)
     artist = tags.get("artist") or folder_artist
+    album = tags.get("album") or folder_album
 
     if not artist:
-        # Fall back to filename parsing for artist (e.g. "Artist - Title.mp3")
+        # Last resort: split filename on " - " (e.g. "Artist - Title.mp3")
         stem = file_path.stem
         parts = stem.split(" - ", 1)
         if len(parts) == 2:
@@ -240,6 +244,9 @@ def process_file(
         result["skipped"] = True
         result["skip_reason"] = "Could not determine artist"
         return result
+
+    if not album:
+        album = "Unknown Album"
 
     # Determine track number and title
     tracknumber = tags.get("tracknumber")
@@ -258,13 +265,14 @@ def process_file(
     tracknumber = str(tracknumber) if tracknumber else "0"
 
     # Build target filename
-    new_name = build_new_filename(artist, tracknumber, title, file_path.suffix.lower())
+    new_name = build_new_filename(artist, album, tracknumber, title, file_path.suffix.lower())
     new_path = file_path.parent / new_name
     result["new_path"] = str(new_path)
 
     needs_rename = new_path.name != file_path.name
     needs_tag_update = (
         tags.get("artist") != artist
+        or tags.get("album") != album
         or tags.get("title") != title
         or tags.get("tracknumber") != tracknumber
     )
@@ -272,6 +280,7 @@ def process_file(
     if verbose or not apply:
         print(f"\n  File    : {file_path.name}")
         print(f"  Artist  : {artist}")
+        print(f"  Album   : {album}")
         print(f"  Track # : {tracknumber}")
         print(f"  Title   : {title}")
         if needs_rename:
@@ -285,7 +294,7 @@ def process_file(
 
     if apply:
         if needs_tag_update:
-            ok = write_tags(file_path, artist, title, tracknumber)
+            ok = write_tags(file_path, artist, album, title, tracknumber)
             result["tags_updated"] = ok
 
         if needs_rename:
