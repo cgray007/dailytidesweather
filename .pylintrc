@@ -1,0 +1,16 @@
+[MASTER]
+# music_tagger.py is a standalone script with its own dependency (mutagen) not in requirements.txt
+ignore=music_tagger.py
+
+[MESSAGES CONTROL]
+# Docstrings are optional for short script-level helper functions
+disable=missing-function-docstring
+
+[FORMAT]
+max-line-length=120
+
+[DESIGN]
+max-args=7
+max-locals=20
+max-statements=60
+max-branches=15

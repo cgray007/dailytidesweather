@@ -6,6 +6,7 @@ Weather from Open-Meteo (no API key required).
 """
 
 import os
+import re
 import sys
 import smtplib
 import json
@@ -53,19 +54,21 @@ def fetch_tides(today: date) -> list[dict]:
 
 
 def wind_dir_label(deg: float) -> str:
-    dirs = ["N","NNE","NE","ENE","E","ESE","SE","SSE",
-            "S","SSW","SW","WSW","W","WNW","NW","NNW"]
+    dirs = ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE",
+            "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"]
     return dirs[round(deg / 22.5) % 16]
 
 
 def fetch_weather(today: date) -> list[dict]:
     # Build URL manually: urlencode encodes commas as %2C which Open-Meteo rejects
+    date_str = today.strftime("%Y-%m-%d")
     url = (
         f"https://api.open-meteo.com/v1/forecast"
         f"?latitude={OC_LAT}&longitude={OC_LON}"
         f"&hourly=temperature_2m,windspeed_10m,winddirection_10m,uv_index"
         f"&temperature_unit=fahrenheit&windspeed_unit=mph"
-        f"&timezone=America%2FNew_York&forecast_days=1"
+        f"&timezone=America%2FNew_York"
+        f"&start_date={date_str}&end_date={date_str}"
     )
     with urllib.request.urlopen(url, timeout=15) as resp:
         data = json.loads(resp.read().decode())
@@ -85,33 +88,55 @@ def fetch_weather(today: date) -> list[dict]:
 
 
 def uv_label(uv: float) -> str:
-    if uv < 3:  return "Low"
-    if uv < 6:  return "Moderate"
-    if uv < 8:  return "High"
-    if uv < 11: return "Very High"
+    if uv < 3:
+        return "Low"
+    if uv < 6:
+        return "Moderate"
+    if uv < 8:
+        return "High"
+    if uv < 11:
+        return "Very High"
     return "Extreme"
 
 
-def generate_narrative(today: date, tides: list[dict], weather: list[dict]) -> str:
-    tide_lines = []
+def uv_color(uv: float) -> str:
+    if uv < 3:
+        return "#2d8a2d"
+    if uv < 6:
+        return "#b8860b"
+    if uv < 8:
+        return "#d4600a"
+    if uv < 11:
+        return "#c0392b"
+    return "#8e44ad"
+
+
+def _tide_summary_lines(tides: list[dict]) -> list[str]:
+    lines = []
     for entry in tides:
         t = datetime.strptime(entry["t"], "%Y-%m-%d %H:%M")
         label = "High" if entry["type"] == "H" else "Low"
         height = float(entry["v"])
-        tide_lines.append(f"  {label} tide at {t.strftime('%-I:%M %p')}: {height:+.2f} ft")
+        lines.append(f"  {label} tide at {t.strftime('%-I:%M %p')}: {height:+.2f} ft")
+    return lines
 
-    weather_lines = []
+
+def _weather_summary_lines(weather: list[dict]) -> list[str]:
+    lines = []
     for w in weather:
-        weather_lines.append(
+        lines.append(
             f"  {w['hour'].strftime('%-I %p')}: {w['temp']:.0f}°F, "
             f"Wind {wind_dir_label(w['wind_dir'])} {w['wind_speed']:.0f} mph, "
             f"UV {w['uv']:.1f} ({uv_label(w['uv'])})"
         )
+    return lines
 
+
+def generate_narrative(today: date, tides: list[dict], weather: list[dict]) -> str:
     message = (
         f"Today is {today.strftime('%A, %B %-d, %Y')}. "
-        f"Here are today's tide predictions:\n" + "\n".join(tide_lines) +
-        f"\n\nWeather forecast for Ocean City, MD:\n" + "\n".join(weather_lines)
+        "Here are today's tide predictions:\n" + "\n".join(_tide_summary_lines(tides)) +
+        "\n\nWeather forecast for Ocean City, MD:\n" + "\n".join(_weather_summary_lines(weather))
     )
 
     client = anthropic.Anthropic()
@@ -145,19 +170,8 @@ def tide_row(entry: dict) -> str:
     label = "High Tide" if entry["type"] == "H" else "Low Tide "
     height = float(entry["v"])
     time_12 = t.strftime("%-I:%M %p")
-    bar_len = max(0, int((height + 1) * 6))
-    bar = "█" * bar_len
-    return (
-        f"  {label}  |  {time_12:>8}  |  {height:+.2f} ft  |  {bar}"
-    )
-
-
-def uv_color(uv: float) -> str:
-    if uv < 3:  return "#2d8a2d"
-    if uv < 6:  return "#b8860b"
-    if uv < 8:  return "#d4600a"
-    if uv < 11: return "#c0392b"
-    return "#8e44ad"
+    tide_bar = "█" * max(0, int((height + 1) * 6))
+    return f"  {label}  |  {time_12:>8}  |  {height:+.2f} ft  |  {tide_bar}"
 
 
 def build_html(today: date, tides: list[dict], narrative: str, weather: list[dict]) -> str:
@@ -170,23 +184,26 @@ def build_html(today: date, tides: list[dict], narrative: str, weather: list[dic
         height = float(entry["v"])
         time_12 = t.strftime("%-I:%M %p")
         color = "#1a6b3c" if entry["type"] == "H" else "#2c5f8a"
-        tide_rows += f"""
-        <tr>
-          <td style="padding:10px 16px;font-weight:bold;color:{color};">{label}</td>
-          <td style="padding:10px 16px;">{time_12}</td>
-          <td style="padding:10px 16px;text-align:right;">{height:+.2f} ft</td>
-        </tr>"""
+        tide_rows += (
+            f"\n        <tr>"
+            f"<td style='padding:10px 16px;font-weight:bold;color:{color};'>{label}</td>"
+            f"<td style='padding:10px 16px;'>{time_12}</td>"
+            f"<td style='padding:10px 16px;text-align:right;'>{height:+.2f} ft</td>"
+            f"</tr>"
+        )
 
     weather_rows = ""
     for w in weather:
-        color = uv_color(w["uv"])
-        weather_rows += f"""
-        <tr>
-          <td style="padding:8px 16px;">{w['hour'].strftime('%-I %p')}</td>
-          <td style="padding:8px 16px;text-align:right;">{w['temp']:.0f}°F</td>
-          <td style="padding:8px 16px;">{wind_dir_label(w['wind_dir'])} {w['wind_speed']:.0f} mph</td>
-          <td style="padding:8px 16px;text-align:right;font-weight:bold;color:{color};">{w['uv']:.1f} <span style="font-weight:normal;font-size:12px;">({uv_label(w['uv'])})</span></td>
-        </tr>"""
+        wcolor = uv_color(w["uv"])
+        weather_rows += (
+            f"\n        <tr>"
+            f"<td style='padding:8px 16px;'>{w['hour'].strftime('%-I %p')}</td>"
+            f"<td style='padding:8px 16px;text-align:right;'>{w['temp']:.0f}°F</td>"
+            f"<td style='padding:8px 16px;'>{wind_dir_label(w['wind_dir'])} {w['wind_speed']:.0f} mph</td>"
+            f"<td style='padding:8px 16px;text-align:right;font-weight:bold;color:{wcolor};'>"
+            f"{w['uv']:.1f} <span style='font-weight:normal;font-size:12px;'>({uv_label(w['uv'])})</span>"
+            f"</td></tr>"
+        )
 
     return f"""<!DOCTYPE html>
 <html>
@@ -197,9 +214,7 @@ def build_html(today: date, tides: list[dict], narrative: str, weather: list[dic
 
     <div style="background:#0a3d6b;color:#fff;padding:24px 28px;">
       <div style="font-size:22px;font-weight:bold;">🌊 Daily Tide Report</div>
-      <div style="font-size:14px;margin-top:4px;opacity:.85;">
-        136th Street — Ocean City, MD
-      </div>
+      <div style="font-size:14px;margin-top:4px;opacity:.85;">136th Street — Ocean City, MD</div>
       <div style="font-size:13px;margin-top:2px;opacity:.70;">{date_label}</div>
     </div>
 
@@ -286,11 +301,10 @@ def build_text(today: date, tides: list[dict], narrative: str, weather: list[dic
 
 
 def parse_recipients(raw: str) -> list[str]:
-    import re
     return [addr.strip() for addr in re.split(r"[,;]", raw) if addr.strip()]
 
 
-def send_email(subject: str, html: str, text: str,
+def send_email(subject: str, html: str, text: str,  # pylint: disable=too-many-arguments,too-many-positional-arguments
                sender: str, password: str, recipient: str) -> None:
     recipients = parse_recipients(recipient)
     msg = MIMEMultipart("alternative")
