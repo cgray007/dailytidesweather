@@ -62,10 +62,10 @@ def fetch_tides(today: date) -> list[dict]:
 
 
 def fetch_water_temp(today: date) -> tuple:
-    """Return (temp_f, time_str) of the most recent NOAA water temperature reading.
+    """Return (avg_temp_f, reading_count) averaged over the previous 24 hours.
 
-    Fetches yesterday + today so there is always data even when sent at 3 AM
-    before new readings have accumulated.  Returns (None, None) on failure.
+    Fetches yesterday + today, then filters to readings within the last 24 hours
+    and averages them.  Returns (None, 0) on failure or no data.
     """
     yesterday = today - timedelta(days=1)
     params = urllib.parse.urlencode({
@@ -82,13 +82,19 @@ def fetch_water_temp(today: date) -> tuple:
         with urllib.request.urlopen(url, timeout=15) as resp:
             data = json.loads(resp.read().decode())
         readings = data.get("data") or []
-        if readings:
-            latest = readings[-1]
-            t = datetime.strptime(latest["t"], "%Y-%m-%d %H:%M")
-            return float(latest["v"]), t.strftime("%-I:%M %p")
+        cutoff = datetime.now() - timedelta(hours=24)
+        values = []
+        for r in readings:
+            try:
+                if datetime.strptime(r["t"], "%Y-%m-%d %H:%M") >= cutoff:
+                    values.append(float(r["v"]))
+            except (ValueError, KeyError):
+                pass
+        if values:
+            return sum(values) / len(values), len(values)
     except Exception:  # pylint: disable=broad-exception-caught
         pass
-    return None, None
+    return None, 0
 
 
 def wind_dir_label(deg: float) -> str:
@@ -173,7 +179,7 @@ def _weather_summary_lines(weather: list[dict]) -> list[str]:
 def generate_narrative(today: date, tides: list[dict], weather: list[dict],
                        water_temp: float | None) -> str:
     water_line = (
-        f"\nCurrent ocean water temperature: {water_temp:.1f}°F"
+        f"\nOcean water temperature (24-hr avg): {water_temp:.1f}°F"
         if water_temp is not None else ""
     )
     message = (
@@ -218,11 +224,13 @@ def tide_row(entry: dict) -> str:
     return f"  {label}  |  {time_12:>8}  |  {height:+.2f} ft  |  {tide_bar}"
 
 
-def _water_temp_html(water_temp: float | None, water_temp_time: str | None) -> str:
+def _water_temp_html(water_temp: float | None, reading_count: int) -> str:
     if water_temp is None:
         return ""
-    as_of = f" <span style='color:#aaa;font-size:11px;'>(as of {water_temp_time}, Ocean City Inlet)</span>" \
-        if water_temp_time else ""
+    note = (
+        f" <span style='color:#aaa;font-size:11px;'>"
+        f"(24-hr avg of {reading_count} readings, Ocean City Inlet)</span>"
+    )
     return (
         f"<div style='margin:0 28px 16px;padding:12px 16px;"
         f"background:#e8f4fd;border-left:4px solid #0a3d6b;border-radius:4px;"
@@ -230,12 +238,12 @@ def _water_temp_html(water_temp: float | None, water_temp_time: str | None) -> s
         f"<a href='{URL_NOAA_WATER}' {_LK} style='font-weight:bold;color:#333;text-decoration:none;'>"
         f"🌊 Water Temp:</a> "
         f"<span style='font-size:18px;font-weight:bold;color:#0a3d6b;'>{water_temp:.1f}°F</span>"
-        f"{as_of}</div>"
+        f"{note}</div>"
     )
 
 
 def build_html(today: date, tides: list[dict], narrative: str, weather: list[dict],  # pylint: disable=too-many-arguments,too-many-positional-arguments
-               water_temp: float | None, water_temp_time: str | None) -> str:
+               water_temp: float | None, reading_count: int) -> str:
     date_label = today.strftime("%A, %B %-d, %Y")
 
     tide_rows = ""
@@ -283,7 +291,7 @@ def build_html(today: date, tides: list[dict], narrative: str, weather: list[dic
       {narrative}
     </div>
 
-    {_water_temp_html(water_temp, water_temp_time)}
+    {_water_temp_html(water_temp, reading_count)}
 
     <div style="padding:0 28px 20px;">
       <div style="font-size:12px;font-weight:bold;color:#555;margin-bottom:6px;
@@ -337,10 +345,10 @@ def build_html(today: date, tides: list[dict], narrative: str, weather: list[dic
 
 
 def build_text(today: date, tides: list[dict], narrative: str, weather: list[dict],
-               water_temp: float | None, water_temp_time: str | None) -> str:
+               water_temp: float | None, reading_count: int) -> str:
     date_label = today.strftime("%A, %B %-d, %Y")
     water_line = (
-        [f"Water Temp: {water_temp:.1f}°F (as of {water_temp_time}, Ocean City Inlet)", ""]
+        [f"Water Temp: {water_temp:.1f}°F (24-hr avg of {reading_count} readings, Ocean City Inlet)", ""]
         if water_temp is not None else []
     )
     lines = [
@@ -413,9 +421,9 @@ def main() -> None:
     tides = fetch_tides(today)
 
     print("Fetching NOAA water temperature …")
-    water_temp, water_temp_time = fetch_water_temp(today)
+    water_temp, reading_count = fetch_water_temp(today)
     if water_temp is not None:
-        print(f"  Water temp: {water_temp:.1f}°F (as of {water_temp_time})")
+        print(f"  Water temp: {water_temp:.1f}°F (24-hr avg of {reading_count} readings)")
     else:
         print("  Water temp unavailable, continuing without it.")
 
@@ -426,8 +434,8 @@ def main() -> None:
     narrative = generate_narrative(today, tides, weather, water_temp)
 
     subject = f"Tide Report — OC 136th St — {today.strftime('%a %b %-d')}"
-    html    = build_html(today, tides, narrative, weather, water_temp, water_temp_time)
-    text    = build_text(today, tides, narrative, weather, water_temp, water_temp_time)
+    html    = build_html(today, tides, narrative, weather, water_temp, reading_count)
+    text    = build_text(today, tides, narrative, weather, water_temp, reading_count)
 
     print(f"Sending email to {recipient} …")
     send_email(subject, html, text, gmail_address, gmail_password, recipient)
