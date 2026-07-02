@@ -24,6 +24,14 @@ SEASON_END   = (10, 15)   # October 15
 OC_LAT       = 38.3365
 OC_LON       = -75.0849
 
+# Source URLs — used for clickable links in the HTML email
+_LK = "target='_blank' rel='noopener noreferrer'"  # shared link attributes
+URL_NOAA_TIDES     = "https://tidesandcurrents.noaa.gov/noaatidepredictions.html?id=8570283"
+URL_NOAA_WATER     = "https://tidesandcurrents.noaa.gov/physocean.html?id=8570283"
+URL_NOAA_STATION   = "https://tidesandcurrents.noaa.gov/stationhome.html?id=8570283"
+URL_EPA_UV         = "https://www.epa.gov/sunsafety/uv-index-scale-0"
+URL_OPEN_METEO     = "https://open-meteo.com/"
+
 
 def in_season(today: date) -> bool:
     start = date(today.year, *SEASON_START)
@@ -219,7 +227,8 @@ def _water_temp_html(water_temp: float | None, water_temp_time: str | None) -> s
         f"<div style='margin:0 28px 16px;padding:12px 16px;"
         f"background:#e8f4fd;border-left:4px solid #0a3d6b;border-radius:4px;"
         f"font-size:15px;color:#333;'>"
-        f"<span style='font-weight:bold;'>🌊 Water Temp:</span> "
+        f"<a href='{URL_NOAA_WATER}' {_LK} style='font-weight:bold;color:#333;text-decoration:none;'>"
+        f"🌊 Water Temp:</a> "
         f"<span style='font-size:18px;font-weight:bold;color:#0a3d6b;'>{water_temp:.1f}°F</span>"
         f"{as_of}</div>"
     )
@@ -278,7 +287,9 @@ def build_html(today: date, tides: list[dict], narrative: str, weather: list[dic
 
     <div style="padding:0 28px 20px;">
       <div style="font-size:12px;font-weight:bold;color:#555;margin-bottom:6px;
-                  text-transform:uppercase;letter-spacing:.05em;">Tides</div>
+                  text-transform:uppercase;letter-spacing:.05em;">
+        <a href='{URL_NOAA_TIDES}' {_LK} style="color:#555;text-decoration:none;">Tides</a>
+      </div>
       <table style="width:100%;border-collapse:collapse;">
         <thead>
           <tr style="border-bottom:2px solid #d0dde8;">
@@ -294,14 +305,18 @@ def build_html(today: date, tides: list[dict], narrative: str, weather: list[dic
 
     <div style="padding:0 28px 20px;">
       <div style="font-size:12px;font-weight:bold;color:#555;margin-bottom:6px;
-                  text-transform:uppercase;letter-spacing:.05em;">Hourly Weather</div>
+                  text-transform:uppercase;letter-spacing:.05em;">
+        <a href='{URL_OPEN_METEO}' {_LK} style="color:#555;text-decoration:none;">Hourly Weather</a>
+      </div>
       <table style="width:100%;border-collapse:collapse;">
         <thead>
           <tr style="border-bottom:2px solid #d0dde8;">
             <th style="padding:8px 16px;text-align:left;color:#555;font-size:13px;">Time</th>
             <th style="padding:8px 16px;text-align:right;color:#555;font-size:13px;">Temp</th>
             <th style="padding:8px 16px;text-align:left;color:#555;font-size:13px;">Wind</th>
-            <th style="padding:8px 16px;text-align:right;color:#555;font-size:13px;">UV Index</th>
+            <th style="padding:8px 16px;text-align:right;color:#555;font-size:13px;">
+              <a href='{URL_EPA_UV}' {_LK} style="color:#555;text-decoration:none;">UV Index</a>
+            </th>
           </tr>
         </thead>
         <tbody style="font-size:14px;">{weather_rows}
@@ -310,9 +325,11 @@ def build_html(today: date, tides: list[dict], narrative: str, weather: list[dic
     </div>
 
     <div style="padding:12px 28px 20px;font-size:12px;color:#888;">
-      Tide predictions and water temperature from NOAA Tides &amp; Currents,
-      Station 8570283 (Ocean City Inlet, MD). Heights above MLLW. Times in Eastern Time.<br>
-      Weather forecast from <a href="https://open-meteo.com/" style="color:#888;">Open-Meteo</a>.
+      Tide predictions and water temperature from
+      <a href='{URL_NOAA_STATION}' {_LK} style="color:#888;">NOAA Tides &amp; Currents,
+      Station 8570283</a> (Ocean City Inlet, MD). Heights above MLLW. Times in Eastern Time.<br>
+      Weather forecast from <a href='{URL_OPEN_METEO}' {_LK} style="color:#888;">Open-Meteo</a>.
+      UV scale from <a href='{URL_EPA_UV}' {_LK} style="color:#888;">EPA</a>.
     </div>
   </div>
 </body>
