@@ -14,13 +14,10 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
         with:
-          python-version: "3.12"
-
-      - name: Install dependencies
-        run: pip install -r requirements.txt
+          dotnet-version: "10.0.x"
 
       - name: Fetch tides, generate narrative, and send email
         env:
@@ -30,4 +27,4 @@ jobs:
           GMAIL_ADDRESS:      ${{ secrets.GMAIL_ADDRESS }}
           GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
           RECIPIENT_EMAIL:    ${{ secrets.RECIPIENT_EMAIL }}
-        run: python tide_email.py
+        run: dotnet run --project TideEmail --configuration Release

@@ -1,2 +1,11 @@
 __pycache__/
 *.pyc
+
+# .NET build output
+bin/
+obj/
+*.user
+.vs/
+
+# local secret bootstrap — never commit
+secrets.local.json

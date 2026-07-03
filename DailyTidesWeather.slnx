@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="CreateAgent/CreateAgent.csproj" />
+  <Project Path="TideEmail/TideEmail.csproj" />
+</Solution>
