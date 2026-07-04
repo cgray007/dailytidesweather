@@ -31,7 +31,7 @@ internal static class Program
         var gmailPassword = EnvHelper.Require("GMAIL_APP_PASSWORD");
         var recipient     = EnvHelper.Require("RECIPIENT_EMAIL");
 
-        Console.WriteLine($"Fetching NOAA tides for {today:yyyy-MM-dd} …");
+        Console.WriteLine($"Fetching NOAA tides for {today:yyyy-MM-dd}");
         var tides = await NoaaClient.FetchTides(today);
 
         Console.WriteLine("Fetching NOAA water temperature …");
@@ -40,17 +40,17 @@ internal static class Program
             ? $"  Water temp: {waterTemp.Value.ToString("0.0", Formatting.Inv)}°F (avg of {readingCount} lowest readings, last 24 hr)"
             : "  Water temp unavailable, continuing without it.");
 
-        Console.WriteLine("Fetching Open-Meteo weather forecast …");
+        Console.WriteLine("Fetching Open-Meteo weather forecast");
         var weather = await OpenMeteoClient.FetchWeather(today);
 
-        Console.WriteLine("Generating tide narrative via Claude …");
+        Console.WriteLine("Generating tide narrative via Claude");
         var narrative = await NarrativeGenerator.Generate(today, tides, weather, waterTemp);
 
         var subject = $"Tide Report — OC 136th St — {Formatting.ToDate(today).ToString("ddd MMM d", Formatting.Inv)}";
         var html    = EmailBuilder.BuildHtml(today, tides, narrative, weather, waterTemp, readingCount);
         var text    = EmailBuilder.BuildText(today, tides, narrative, weather, waterTemp, readingCount);
 
-        Console.WriteLine($"Sending email to {recipient} …");
+        Console.WriteLine($"Sending email to {recipient}");
         await EmailSender.Send(subject, html, text, gmailAddress, gmailPassword, recipient);
         Console.WriteLine("Done.");
     }
