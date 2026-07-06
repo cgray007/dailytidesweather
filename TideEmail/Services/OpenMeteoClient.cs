@@ -17,7 +17,7 @@ internal static class OpenMeteoClient
         var url =
             "https://api.open-meteo.com/v1/forecast"
             + $"?latitude={OcLat.ToString(Formatting.Inv)}&longitude={OcLon.ToString(Formatting.Inv)}"
-            + "&hourly=temperature_2m,windspeed_10m,winddirection_10m,uv_index"
+            + "&hourly=temperature_2m,windspeed_10m,winddirection_10m,uv_index,precipitation_probability,cloudcover"
             + "&temperature_unit=fahrenheit&windspeed_unit=mph"
             + "&timezone=America%2FNew_York"
             + $"&start_date={dateStr}&end_date={dateStr}";
@@ -28,6 +28,8 @@ internal static class OpenMeteoClient
         var windSpeeds = hourly.GetProperty("windspeed_10m");
         var windDirs   = hourly.GetProperty("winddirection_10m");
         var uvs        = hourly.GetProperty("uv_index");
+        var precips    = hourly.GetProperty("precipitation_probability");
+        var clouds     = hourly.GetProperty("cloudcover");
 
         var rows = new List<WeatherHour>();
         for (var i = 0; i < times.GetArrayLength(); i++)
@@ -40,7 +42,9 @@ internal static class OpenMeteoClient
                     temps[i].GetDouble(),
                     windSpeeds[i].GetDouble(),
                     windDirs[i].GetDouble(),
-                    uvs[i].GetDouble()));
+                    uvs[i].GetDouble(),
+                    precips[i].ValueKind is JsonValueKind.Null ? 0 : precips[i].GetDouble(),
+                    clouds[i].ValueKind is JsonValueKind.Null ? 0 : clouds[i].GetDouble()));
             }
         }
         return rows;

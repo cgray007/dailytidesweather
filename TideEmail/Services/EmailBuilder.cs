@@ -43,6 +43,8 @@ internal static class EmailBuilder
                 + $"<td style='padding:8px 16px;'>{w.Hour.ToString("h tt", Formatting.Inv)}</td>"
                 + $"<td style='padding:8px 16px;text-align:right;'>{w.Temp.ToString("0", Formatting.Inv)}°F</td>"
                 + $"<td style='padding:8px 16px;'>{Formatting.WindDirLabel(w.WindDir)} {w.WindSpeed.ToString("0", Formatting.Inv)} mph</td>"
+                + $"<td style='padding:8px 16px;text-align:right;'>{w.PrecipChance.ToString("0", Formatting.Inv)}%</td>"
+                + $"<td style='padding:8px 16px;text-align:right;'>{w.CloudCover.ToString("0", Formatting.Inv)}%</td>"
                 + $"<td style='padding:8px 16px;text-align:right;font-weight:bold;color:{wcolor};'>"
                 + $"{w.Uv.ToString("0.0", Formatting.Inv)} <span style='font-weight:normal;font-size:12px;'>({Formatting.UvLabel(w.Uv)})</span>"
                 + "</td></tr>");
@@ -97,6 +99,8 @@ internal static class EmailBuilder
             <th style="padding:8px 16px;text-align:left;color:#555;font-size:13px;">Time</th>
             <th style="padding:8px 16px;text-align:right;color:#555;font-size:13px;">Temp</th>
             <th style="padding:8px 16px;text-align:left;color:#555;font-size:13px;">Wind</th>
+            <th style="padding:8px 16px;text-align:right;color:#555;font-size:13px;">Precip</th>
+            <th style="padding:8px 16px;text-align:right;color:#555;font-size:13px;">Clouds</th>
             <th style="padding:8px 16px;text-align:right;color:#555;font-size:13px;">
               <a href='{{UrlEpaUv}}' {{Lk}} style="color:#555;text-decoration:none;">UV Index</a>
             </th>
@@ -148,14 +152,16 @@ internal static class EmailBuilder
         [
             "",
             "HOURLY WEATHER",
-            $"  {"Time",-7}  {"Temp",6}  {"Wind",-16}  UV Index",
-            "  " + new string('-', 50),
+            $"  {"Time",-7}  {"Temp",6}  {"Wind",-16}  {"Precip",6}  {"Clouds",6}  UV Index",
+            "  " + new string('-', 66),
         ]);
         foreach (var w in weather)
         {
             var wind = $"{Formatting.WindDirLabel(w.WindDir)} {w.WindSpeed.ToString("0", Formatting.Inv)} mph";
             lines.Add(
                 $"  {w.Hour.ToString("h tt", Formatting.Inv),-7}  {w.Temp.ToString("0", Formatting.Inv)}°F    {wind,-16}  "
+                + $"{w.PrecipChance.ToString("0", Formatting.Inv) + "%",6}  "
+                + $"{w.CloudCover.ToString("0", Formatting.Inv) + "%",6}  "
                 + $"{w.Uv.ToString("0.0", Formatting.Inv)} ({Formatting.UvLabel(w.Uv)})");
         }
         lines.AddRange(

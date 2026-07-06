@@ -84,5 +84,7 @@ internal static class NarrativeGenerator
         weather.Select(w =>
             $"  {w.Hour.ToString("h tt", Formatting.Inv)}: {w.Temp.ToString("0", Formatting.Inv)}°F, "
             + $"Wind {Formatting.WindDirLabel(w.WindDir)} {w.WindSpeed.ToString("0", Formatting.Inv)} mph, "
+            + $"Precip {w.PrecipChance.ToString("0", Formatting.Inv)}%, "
+            + $"Clouds {w.CloudCover.ToString("0", Formatting.Inv)}%, "
             + $"UV {w.Uv.ToString("0.0", Formatting.Inv)} ({Formatting.UvLabel(w.Uv)})");
 }
