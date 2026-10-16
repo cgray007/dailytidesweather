@@ -10,9 +10,6 @@ namespace DanaPointEmail;
 
 internal static class Program
 {
-    private static readonly (int Month, int Day) SeasonStart = (4, 1);   // April 1
-    private static readonly (int Month, int Day) SeasonEnd   = (11, 30); // November 30
-
     private static async Task Main()
     {
         // On local runs, persist any set secrets and hydrate any missing ones
@@ -20,12 +17,6 @@ internal static class Program
         LocalSecrets.Sync();
 
         var today = DateOnly.FromDateTime(DateTime.Now);
-
-        if (!InSeason(today))
-        {
-            Console.WriteLine($"Outside season ({today:yyyy-MM-dd}). No email sent.");
-            return;
-        }
 
         var gmailAddress  = EnvHelper.Require("GMAIL_ADDRESS");
         var gmailPassword = EnvHelper.Require("GMAIL_APP_PASSWORD");
@@ -57,12 +48,5 @@ internal static class Program
         Console.WriteLine($"Sending email to {recipient}");
         await EmailSender.Send(subject, html, text, gmailAddress, gmailPassword, recipient);
         Console.WriteLine("Done.");
-    }
-
-    private static bool InSeason(DateOnly today)
-    {
-        var start = new DateOnly(today.Year, SeasonStart.Month, SeasonStart.Day);
-        var end   = new DateOnly(today.Year, SeasonEnd.Month, SeasonEnd.Day);
-        return start <= today && today <= end;
     }
 }
