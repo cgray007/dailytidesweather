@@ -11,7 +11,7 @@ namespace TideEmail;
 internal static class Program
 {
     private static readonly (int Month, int Day) SeasonStart = (5, 17);  // May 17
-    private static readonly (int Month, int Day) SeasonEnd   = (10, 15); // October 15
+    private static readonly (int Month, int Day) SeasonEnd   = (10, 31); // October 31 (temp extended for credential test)
 
     private static async Task Main()
     {
