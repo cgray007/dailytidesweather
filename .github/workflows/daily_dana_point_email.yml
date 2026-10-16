@@ -1,0 +1,30 @@
+name: Daily Dana Point Tide Email
+
+on:
+  schedule:
+    # 3:00 AM Pacific Daylight Time = 10:00 UTC (Apr–Nov is PDT/UTC-7)
+    - cron: "0 10 * * *"
+  workflow_dispatch:  # allow manual test runs from the GitHub Actions UI
+
+jobs:
+  send-dana-point-email:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Fetch tides, generate narrative, and send email
+        env:
+          ANTHROPIC_API_KEY:          ${{ secrets.ANTHROPIC_API_KEY }}
+          TIDE_AGENT_ID:              ${{ secrets.TIDE_AGENT_ID }}
+          TIDE_ENV_ID:                ${{ secrets.TIDE_ENV_ID }}
+          GMAIL_ADDRESS:              ${{ secrets.GMAIL_ADDRESS }}
+          GMAIL_APP_PASSWORD:         ${{ secrets.GMAIL_APP_PASSWORD }}
+          DANA_POINT_RECIPIENT_EMAIL: ${{ secrets.DANA_POINT_RECIPIENT_EMAIL }}
+        run: dotnet run --project DanaPointEmail --configuration Release
