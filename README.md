@@ -21,7 +21,8 @@ dotnet run --project TideEmail
 
 `TideEmail` requires these environment variables (set as GitHub Secrets for the workflow):
 `ANTHROPIC_API_KEY`, `TIDE_AGENT_ID`, `TIDE_ENV_ID`, `GMAIL_ADDRESS`, `GMAIL_APP_PASSWORD`,
-`RECIPIENT_EMAIL`. `CreateAgent` needs only `ANTHROPIC_API_KEY`.
+`RECIPIENT_EMAIL`. `DanaPointEmail` uses the same set but reads `DANA_POINT_RECIPIENT_EMAIL`
+instead of `RECIPIENT_EMAIL`. `CreateAgent` needs only `ANTHROPIC_API_KEY`.
 
 ### Local secrets
 

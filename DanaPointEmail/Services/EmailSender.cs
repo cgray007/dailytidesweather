@@ -7,6 +7,8 @@ namespace DanaPointEmail.Services;
 /// <summary>Sends the report through Gmail SMTP with STARTTLS.</summary>
 internal static class EmailSender
 {
+    private const string FromEmailAddress = "cgray@illuminus.net";
+
     internal static async Task Send(string subject, string html, string text,
                                     string sender, string password, string recipient)
     {
@@ -14,8 +16,8 @@ internal static class EmailSender
 
         var msg = new MimeMessage();
         msg.Subject = subject;
-        msg.From.Add(MailboxAddress.Parse(sender));
-        msg.To.Add(MailboxAddress.Parse(sender)); // header only — actual delivery below
+        msg.From.Add(MailboxAddress.Parse(FromEmailAddress));
+        msg.Bcc.Add(MailboxAddress.Parse(sender)); // header only — actual delivery below
         msg.Body = new BodyBuilder { TextBody = text, HtmlBody = html }.ToMessageBody();
 
         using var smtp = new SmtpClient();

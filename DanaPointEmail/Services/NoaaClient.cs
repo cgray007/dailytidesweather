@@ -8,13 +8,14 @@ namespace DanaPointEmail.Services;
 /// <summary>NOAA Tides and Currents API (station 9410580 — Dana Point, CA).</summary>
 internal static class NoaaClient
 {
-    private const string Station = "9410580"; // Dana Point, CA
+    private const string TideStation = "9410580"; // Dana Point, CA
+    private const string WaterTempStation = "9410230"; // La Jolla, CA
 
     internal static async Task<List<TidePrediction>> FetchTides(DateOnly today)
     {
         var dateStr = today.ToString("yyyyMMdd", Formatting.Inv);
         var url = "https://api.tidesandcurrents.noaa.gov/api/prod/datagetter"
-                  + $"?begin_date={dateStr}&end_date={dateStr}&station={Station}"
+                  + $"?begin_date={dateStr}&end_date={dateStr}&station={TideStation}"
                   + "&product=predictions&datum=MLLW&time_zone=lst_ldt&interval=hilo"
                   + "&units=english&application=tide_email&format=json";
         using var doc = JsonDocument.Parse(await SharedHttp.Client.GetStringAsync(url));
@@ -43,7 +44,7 @@ internal static class NoaaClient
         var yesterday = today.AddDays(-1);
         var url = "https://api.tidesandcurrents.noaa.gov/api/prod/datagetter"
                   + $"?begin_date={yesterday.ToString("yyyyMMdd", Formatting.Inv)}&end_date={today.ToString("yyyyMMdd", Formatting.Inv)}"
-                  + $"&station={Station}&product=water_temperature&time_zone=lst_ldt"
+                  + $"&station={WaterTempStation}&product=water_temperature&time_zone=lst_ldt"
                   + "&units=english&format=json";
         try
         {
@@ -65,7 +66,7 @@ internal static class NoaaClient
             }
             if (values.Count > 0)
             {
-                var lowest = values.OrderBy(v => v).Take(10).ToList();
+                var lowest = values.OrderBy(v => v).Take(1000).ToList();
                 return (lowest.Average(), lowest.Count);
             }
         }
