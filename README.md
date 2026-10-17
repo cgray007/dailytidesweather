@@ -36,7 +36,8 @@ with a per-user store at `%APPDATA%\DailyTidesWeather\secrets.json` (Linux/macOS
 So after one run with the variables exported, subsequent local runs need no environment
 setup. In GitHub Actions the sync is skipped and secrets come only from the workflow env.
 
-Emails are sent only during the season (May 17 – October 15).
+`TideEmail` sends only within the inclusive date range set in `TideEmail/appsettings.json`
+(`Schedule:FromDate` / `ToDate`, as `"MMdd"` strings, currently May 1 – October 15).
 
 ## Music Tagger (Python)
 

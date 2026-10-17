@@ -21,7 +21,6 @@ internal static class LocalSecrets
         "GMAIL_ADDRESS",
         "GMAIL_APP_PASSWORD",
         "RECIPIENT_EMAIL",
-        "DANA_POINT_RECIPIENT_EMAIL",
         "TIDE_AGENT_ID",
         "TIDE_ENV_ID",
     ];
